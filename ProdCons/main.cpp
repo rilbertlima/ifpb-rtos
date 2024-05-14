@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <semaphore.h>
 
 int max;
 int frame_init, frame_end;
@@ -33,6 +34,7 @@ int fill = 0;
 #define CMAX (10)
 int consumers = 1;
 
+/*
 typedef struct __zem_t {
     int value;
     pthread_cond_t  cond;
@@ -62,6 +64,11 @@ void zem_post(zem_t *z) {
 
 zem_t empty;
 zem_t full;
+*/
+
+sem_t empty;
+sem_t full;
+
 pthread_mutex_t mutex;
 
 void do_fill(cv::Ptr<cv::Mat> value) {
@@ -95,21 +102,21 @@ void *producer(void *arg) {
 
         cv::Ptr<cv::Mat> img = cv::makePtr<cv::Mat>(cv::imread(image_path_final, cv::IMREAD_COLOR));
         printf("Incluindo imagem %d...\n",i);
-        zem_wait(&empty);
+        sem_wait(&empty);
         pthread_mutex_lock(&mutex);
         do_fill(img);
         pthread_mutex_unlock(&mutex);
-        zem_post(&full);
+        sem_post(&full);
     }
 
     // end case
     for (i = 0; i < consumers; i++) {
-        zem_wait(&empty);
+        sem_wait(&empty);
         pthread_mutex_lock(&mutex);
         printf("Incluindo valor %d...\n",-1);
         do_fill(NULL);
         pthread_mutex_unlock(&mutex);
-        zem_post(&full);
+        sem_post(&full);
     }
     
     return NULL;
@@ -119,17 +126,19 @@ void *consumer(void *arg) {
     cv::Ptr<cv::Mat> tmp;
     int i=0;
     //TODO: corrigir um erro que pode estar afetando o desempenho
+    //O bloqueio do pthread_mutex_unlock estava sendo ativo muito tardiamente (após a geracao da imagem)
+    //Foi realizado o adiantiamento dessa função para após a obtenção do tmp (imagem)
     while(true) {
-        zem_wait(&full);
+        sem_wait(&full);
         pthread_mutex_lock(&mutex);
         tmp = do_get();
         
         pthread_mutex_unlock(&mutex);
-        //zem_post(&empty);
+        //sem_post(&empty);
 
         if (tmp == NULL) {
             pthread_mutex_unlock(&mutex);
-            zem_post(&empty);
+            sem_post(&empty);
             break;
         }
         
@@ -138,7 +147,7 @@ void *consumer(void *arg) {
         path_out += imgPasta.imageNumber+".tif";
         imwrite(path_out, *tmp);
         //pthread_mutex_unlock(&mutex);
-        zem_post(&empty);
+        sem_post(&empty);
     }
     return NULL;
 }
@@ -164,8 +173,8 @@ int main(int argc, char *argv[]) {
        buffer[i] = NULL;
     }
 
-    zem_init(&empty,  max); // max are empty 
-    zem_init(&full,  0);    // 0 are full
+    sem_init(&empty, 0,  max); // max are empty 
+    sem_init(&full, 0, 0);    // 0 are full
     pthread_mutex_init(&mutex, NULL);
 
     pthread_t pid, cid[CMAX];
