@@ -13,6 +13,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <sys/time.h>
 
 int max;
 int frame_init, frame_end;
@@ -84,7 +85,6 @@ void *producer(void *arg) {
     for (i = frame_init; i <= frame_end; i++) {
         std::string image_path_final = imgPasta.image_path+std::to_string(i)+".tif";
         imgPasta.imageNumber = std::to_string(i);
-        //std::cout << "Path: " << image_path_final << " & Numero da Imagem: " << imgPasta.imageNumber << std::endl;
         
         std::ifstream file;
         file.open(image_path_final);
@@ -124,23 +124,30 @@ void *consumer(void *arg) {
         pthread_mutex_lock(&mutex);
         tmp = do_get();
         
+        pthread_mutex_unlock(&mutex);
+        //zem_post(&empty);
+
         if (tmp == NULL) {
             pthread_mutex_unlock(&mutex);
             zem_post(&empty);
             break;
         }
-
+        
         blur(*tmp,*tmp,cv::Size(20,20));
         std::string path_out = "imagens/out_";
-        path_out += std::to_string((long long int) arg)+"_"+imgPasta.imageNumber+".tif";
+        path_out += imgPasta.imageNumber+".tif";
         imwrite(path_out, *tmp);
-        pthread_mutex_unlock(&mutex);
+        //pthread_mutex_unlock(&mutex);
         zem_post(&empty);
     }
     return NULL;
 }
 
 int main(int argc, char *argv[]) {
+
+    struct timeval  tv1, tv2;
+    gettimeofday(&tv1, NULL);
+
     if (argc != 5) {
        fprintf(stderr, "usage: %s <buffersize> <frame_init> <frame_end> <consumers>\n", argv[0]);
        exit(1);
@@ -170,5 +177,12 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < consumers; i++) {
        pthread_join(cid[i], NULL); 
     }
+
+    gettimeofday(&tv2, NULL);
+
+    printf ("Total time = %f seconds\n",
+         (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 +
+         (double) (tv2.tv_sec - tv1.tv_sec));
+
     return 0;
 }
