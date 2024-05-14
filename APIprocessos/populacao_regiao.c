@@ -62,7 +62,6 @@ int main () {
   fprintf(arquivo, "Região Nordeste;%.2f\n", (valores[2]/numDeCidades[2]));
   fprintf(arquivo, "Região Sul;%.2f\n", (valores[3]/numDeCidades[3]));
   fprintf(arquivo, "Região Sudeste;%.2f\n", (valores[4]/numDeCidades[4]));
-
   fclose(arquivo);
 
   return 0;

@@ -1,0 +1,5 @@
+Região Centro-Oeste;30103.01
+Região Norte;35254.25
+Região Nordeste;29588.32
+Região Sul;22994.96
+Região Sudeste;48180.60
